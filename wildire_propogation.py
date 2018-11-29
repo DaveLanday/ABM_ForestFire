@@ -2,7 +2,7 @@
 """
 Created on Wed Oct 17 22:22:42 2018
 0 = firebreak, 1 = fire, 2 = tree
-@author: mgreen13, DaveLanday
+@author: _mgreen13_, _DaveLanday_
 """
 import numpy as np
 from collections import Counter
