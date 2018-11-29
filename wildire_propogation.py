@@ -26,6 +26,7 @@ class Cell():
         self.z = z
         self.state = state
         self.visited = False 
+        self.risk = 0
         
         self.dz1 = None
         self.dz2 = None
@@ -181,30 +182,39 @@ class Cell():
                 zs.append(self.z - landscape[n].getZ())
         avgDz= np.sum(zs)
         return(avgDz)
-
-
-  
-def stateMat(landscape):
+def partition_grid(landscape, num_agents):
+    """
+    PARTITION LANDSCAPE INTO EITHER 2 OR 4 PARTITIONS PENDING OF THE NUMBER OF AGENTS
+    USED TO CONTROL THE FIRE.
     
-    """ 
-    Retrieve matrix of states from landscape
-    """   
-    mat = np.zeros([len(landscape),len(landscape)])
-    for i in range(len(landscape)):
-        for j in range(len(landscape)):
-            mat[i,j] = landscape[i,j].state
-    return(mat)
-                
-def zMat(landscape):
-    mat = np.zeros([len(landscape),len(landscape)])
-    for i in range(len(landscape)):
-        for j in range(len(landscape)):
-            mat[i,j] = landscape[i,j].z
-    return(mat)
-                
+    """
+    # DRAW BOX AROUND CELLS THAT ARE ON FIRE
+    fire_i = []
+    fire_j = []
+    for i in landscape:
+        for j in i:
+            if j.state ==1:
+                fire_i.append(j.position[0])
+                fire_j.append(j.potition[1])
+    max_i = max(fire_i)
+    max_j = max(fire_j)
+    min_i = min(fire_i)
+    min_j = min(fire_j)
     
+    centroid_i = (max_i-min_i)/2 + min_i
+    centroid_j = (max_j-min_j)/2 + min_j
+    
+    if num_agents <4:
+        for i in landscape:
+            for j in i:
+                if j.position[0] < centroid_i:
+                    j.partition = 1
+                  
 def  growTree(p,landscape):
-    """GROW TREE AT I,J WITH PROBABILITY P""" 
+    """
+    GROW TREE AT I,J WITH PROBABILITY P
+    INPUT: 
+    """ 
 
     for i in range(len(landscape)):
         for j in range(len(landscape)):
@@ -214,6 +224,11 @@ def  growTree(p,landscape):
     return(landscape)
                     
 def check_contained(landscape):
+    """
+    FIRE CONTAINMENT TEST
+    INPUT: landscape at time t
+    OUTPUT: 
+    """
     for i in range(len(landscape)):
         for j in range(len(landscape)):
             if landscape[i,j].getState() == 2:
@@ -221,6 +236,8 @@ def check_contained(landscape):
                     contained = False
                 else:
                     contained = True
+    return(contained)
+            
                 
     
     
@@ -273,39 +290,13 @@ def fire_prop(land,gamma, zMax,maxN,contained,threshold):
                     landscape[site].setState(0)
                 # KEEP TRACK OF TIME THAT FIRE HAS BEEN BURNING AT A SITE
                 landscape[site].fireT += 1
+        # CONSIDER ALL BORDER SITES FOR POTENTIAL FIRE BLAZING
         for site in border:
-            if pFire(site) > np.random.rand:
+            if pFire(landscape[site]) > np.random.rand:
                 site.setState(1)
-            
-                
-                    
-                    
-                
-                    
-                    
-        for indn,n in enumerate(unvisited):
-            nStates = land[n].getNState(land)
-            dzSum = land[n].getDzSum(land)
-            nF = Counter(nStates)
-            nF = nF[1]
-            nS = len(nStates)
-            for nNeigh in land[n].getN(land):
-                if land[nNeigh].getState() == 2 and nNeigh != (i,j):
-                    unvisited.append(nNeigh)
-            pFire = gamma + (1-gamma)*(dzSum*nF)/(nS*zMax)
-            
-            land[0,0].p.append(pFire)
-            if np.random.rand(1)<pFire:
-                land[n].setState(1)
-                unvisited.pop(indn)
-                fired.append(n)
-                mapS = stateMat(land)
-                stateMaps.append(mapS)
-                
-    for fire in fired:
-        land[fire].setState(0)
-    stateMaps.append(stateMat(land))
-    
+        # TODO UPDATE FIRE
+        # TODO CallAgent(landscape, #)
+        # TODO UPDATE CELL.RISK 
     return(land,stateMaps,fired,starting_z)
     
 bowl = np.load("150x150_bowl_z_10.npy")
