@@ -209,6 +209,27 @@ def partition_grid(landscape, num_agents):
             for j in i:
                 if j.position[0] < centroid_i:
                     j.partition = 1
+                else:
+                    j.partition = 2
+    # FOR FIRES WITH MORE THAN 4 AGENTS
+    else:
+        for i in landscape:
+            for j in i:
+                # upper left corner
+                if j.position[0] < centroid_i and j.position[1] < centroid_j:
+                    j.partition =1
+                # upper right corner
+                elif j.position[0] <centroid_i and j.position[1] >= centroid_j:
+                    j.partition = 2
+                # bottom left
+                elif j.position[0] > centroid_i and j.position[1] < centroid_j:
+                    j.partition = 3
+                # bottom right
+                else:
+                    j.partition = 4
+                    
+        
+                    
                   
 def  growTree(p,landscape):
     """
@@ -294,6 +315,7 @@ def fire_prop(land,gamma, zMax,maxN,contained,threshold):
         for site in border:
             if pFire(landscape[site]) > np.random.rand:
                 site.setState(1)
+
         # TODO UPDATE FIRE
         # TODO CallAgent(landscape, #)
         # TODO UPDATE CELL.RISK 
