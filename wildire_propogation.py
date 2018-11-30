@@ -227,6 +227,7 @@ def partition_grid(landscape, num_agents):
                 # bottom right
                 else:
                     j.partition = 4
+        
 
 
 
@@ -279,7 +280,6 @@ def fire_prop(land,gamma, zMax,maxN,contained,threshold):
        """
 
     stateMaps = []
-    unvisited = []
     fired = []
     starting_z = []
 
@@ -289,10 +289,10 @@ def fire_prop(land,gamma, zMax,maxN,contained,threshold):
     # SET STATE OF CELL TO FIRE
     landscape[i,j].setState(1)
     starting_z.append(landscape[i,j].z)
-    unvisited.extend(land[i,j].getN(land))
     # ADD TO LIST OF FIRED CELLS
     fired.append((i,j))
-
+    
+    # TODO : MOVE WHILE LOOP OUTSIDE OF FUNCTION
     # BEGIN FIRE PROPOGATION
     while not contained:
         border = []
@@ -313,13 +313,24 @@ def fire_prop(land,gamma, zMax,maxN,contained,threshold):
                 landscape[site].fireT += 1
         # CONSIDER ALL BORDER SITES FOR POTENTIAL FIRE BLAZING
         for site in border:
-            if pFire(landscape[site]) > np.random.rand:
+            # GET STATES OF BORDERS SITES NEIGHBORS
+            nStates = landscape[site].getNState(landscape)
+            # GET SUM OF DELTA Z 
+            dzSum = landscape[site].getDzSum(landscape)
+            nF = Counter(nStates)
+            nF = nF[1]
+            nS = len(nStates)
+            # DETERMINE PROBABILITY OF FIRE SPREAD
+            probFire = pFire(gamma,dzSum,nF,nS,zMax)
+            # SET FIRE DEPENDING ON LIKELYHOOD
+            if probFire > np.random.rand:
                 site.setState(1)
 
         # TODO UPDATE FIRE
         # TODO CallAgent(landscape, #)
         # TODO UPDATE CELL.RISK
     return(land,stateMaps,fired,starting_z)
+    
 def max_risk_pos(landscape, potential_fire_sites):
     """
         MAX_RISK_POS: calculates the riskiest site for the agent to move to
@@ -336,6 +347,9 @@ def max_risk_pos(landscape, potential_fire_sites):
 
     #return the riskiest site:
     return(riskiest)
+    
+def pFire(gamma, dzSum, nF,nS,zMax):
+    return(gamma + (1-gamma)*(dzSum*nF)/(nS*zMax))
 
 bowl = np.load("150x150_bowl_z_10.npy")
 hill = np.load("150x150_slant_z_10.npy")
@@ -344,9 +358,6 @@ bowlSmall = np.load("50x50_bowl_zmax_10.npy")
 
 # initialize contained
 contained = False
-
-
-
 
 
 
