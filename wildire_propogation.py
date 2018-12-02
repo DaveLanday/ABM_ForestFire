@@ -196,6 +196,22 @@ class Agent():
     def __init__ (self):
         self.position = None
         self.partition = None
+        self.partition_mates = None
+        
+    def set_partition_mates(self,landscape):
+        """
+        Get list of all cells in the same partition as agent
+        """
+        partition_mates = []
+
+        for i in range(len(landscape)):
+            for j in range(len(landscape)):
+                if self.partition == landscape[i,j].partition:
+                    partition_mates.append((i,j))
+        self.partition_mates = partition_mates
+                    
+        
+    
     
 def place_agent(landscape,agents):
     """
@@ -207,11 +223,12 @@ def place_agent(landscape,agents):
         # Assign partition to agent
         agent.partition = num+1
         partition_fire_sites = []
-        for i in landscape:
-            for j in i:
+        for i in range(len(landscape)):
+            for j in range(len(landscape)):
                 # IF SITE IS ON FIRE AND IN PARTITION, APPEND TO PART_FIRE_SITES
-                if j.partition == num+1 and j.state == 1:
-                    partition_fire_sites.append(j.position)
+                if landscape[i,j].partition == num+1 and landscape[i,j].state == 1:
+                    print(1)
+                    partition_fire_sites.append((i,j))
         agent_position = max_risk_pos(landscape,partition_fire_sites)
         # ReASSIGN POSITION
         agent.position = agent_position
@@ -220,37 +237,23 @@ def place_agent(landscape,agents):
         
 def update_agent(landscape,agents):
     for agent in agents:
+        agent.set_partition_mates(landscape)
+        agent_neighbor_set = set(landscape[agent.position].getN(landscape))
+        cells_in_partition = set(agent.partition_mates)
         
-    
+        neighbors_in_partition = agent_neighbor_set.intersection(cells_in_partition)
+        
+        n_fire = []
+        for cell in agent.partition_mates:
+            if landscape[cell].state == 1:
+                n_fire.extend(list(set(landscape[cell].getN(landscape)).intersection(set(agent.partition_mates))))
+        fires_part_neighors = list(neighbors_in_partition.intersection(set(n_fire)))
+        if len(fires_part_neighors) ==0:
+            pass
+        else:
+            agent.position = max_risk_pos(landscape,fires_part_neighors)
+            landscape[agent.position].state = 0
             
-A1 = Agent()
-A2 = Agent()
-A3 = Agent()
-   
-agents = [A1,A2,A3]
-place_agent(landscape,agents)
-A1.position 
-A2.position
-
-
-
-
-
-
-risks = np.zeros([40,40])
-for i in range(len(landscape)):
-    for j in range(len(landscape)):
-        risks[i,j] = landscape[i,j].risk
-zSpace = np.zeros([40,40])
-for i in range(len(landscape)):
-    for j in range(len(landscape)):
-        zSpace[i,j] = landscape[i,j].z
-  
-      
-plt.figure(figsize = (10,10))
-plt.imshow(risks)
-plt.figure(figsize = (10,10))
-plt.imshow(stateMaps[4])
           
 def partition_grid(landscape, num_agents):
     """
@@ -385,7 +388,7 @@ def update_p_fire(landscape,gamma,zMax):
                 j.risk = 0
                 
                 
-def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize = False):
+def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize,num_agents):
 
     """
     SEMI SYNCHRONOUS UPDATE.
@@ -439,14 +442,21 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize = False)
         if initialize == True:
             if t > 5:
                 break
+        
+        if initialize == False:
+            agents = []
+            for g in range(num_agents):
+                A = Agent()
+                agents.append(A)
+            place_agent(landscape,agents)
+            update_agent(landscape,agents)
+
+            
         # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
         update_p_fire(landscape,gamma,zMax)
-
         stateMaps.append(getStates(landscape))
         contained = check_contained(landscape,threshold)
-        # TODO CallAgent(landscape, #)
-        # TODO UPDATE CELL.RISK
-    
+        
     return(stateMaps)
 
 bowlSmall = np.load("50x50_bowl_zmax_10.npy")
@@ -470,26 +480,32 @@ for i in list(range(len(landscape))):
                 landscape[i][j].setDz(landscape)
 #TEST FIRE_PROP
 #initialize fire cluster
-stateMaps = fire_prop(landscape,.5,10,4,False,5,True)
+stateMaps = fire_prop(landscape,.5,10,4,False,5,True,4)
+
+        
 
 # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
 partition_grid(landscape,4)
 
-state_maps = fire_prop(landscape,.5,10,4,False,2)
+part_map = np.zeros([40,40])
+for i in range(len(landscape)):
+    for j in range(len(landscape)):
+        part_map[i,j] = landscape[i,j].partition
+state_maps = fire_prop(landscape,.5,10,4,False,2,False,4)
 
-fig, ax = plt.subplots(figsize=(15, 10));
-cmap = ListedColormap(['w', 'r', 'green'])
-cax = ax.matshow(state_maps[62],cmap=cmap)
-
-plt.contour(zVals, colors = "b")
-plt.show()
-
-for i,frame in enumerate(state_maps):
-    fig, ax = plt.subplots(figsize=(15, 10))
-
-    cmap = ListedColormap(['w', 'r', 'green'])
-    cax = ax.matshow(frame,cmap=cmap)
-    plt.contour(zVals, colors = "b")
-    figname = "{}.png".format(i)
-    plt.savefig(figname)
-    plt.close(fig)
+#fig, ax = plt.subplots(figsize=(15, 10));
+#cmap = ListedColormap(['w', 'r', 'green'])
+#cax = ax.matshow(state_maps[62],cmap=cmap)
+#
+#plt.contour(zVals, colors = "b")
+#plt.show()
+#
+#for i,frame in enumerate(state_maps):
+#    fig, ax = plt.subplots(figsize=(15, 10))
+#
+#    cmap = ListedColormap(['w', 'r', 'green'])
+#    cax = ax.matshow(frame,cmap=cmap)
+#    plt.contour(zVals, colors = "b")
+#    figname = "{}.png".format(i)
+#    plt.savefig(figname)
+#    plt.close(fig)
