@@ -182,6 +182,9 @@ class Cell():
         return(self.dz1,self.dz2,self.dz3,self.dz4)
 
     def getDzSum(self,landscape):
+        """
+        Get sum of height differences from neighbor of current fire cell
+        """
         nbs = self.getN(landscape)
         zs = []
         for n in nbs:
@@ -233,7 +236,7 @@ def place_agent(landscape,agents):
         # ReASSIGN POSITION
         agent.position = agent_position
         # BUILD FIRE BREAK AT AGENTS POSITION
-        landscape[agent.position].state = 0
+        landscape[agent.position].state = 3
         
 def update_agent(landscape,agents):
     for agent in agents:
@@ -248,11 +251,11 @@ def update_agent(landscape,agents):
             if landscape[cell].state == 1:
                 n_fire.extend(list(set(landscape[cell].getN(landscape)).intersection(set(agent.partition_mates))))
         fires_part_neighors = list(neighbors_in_partition.intersection(set(n_fire)))
-        if len(fires_part_neighors) ==0:
+        if len(fires_part_neighors) == 0:
             pass
         else:
             agent.position = max_risk_pos(landscape,fires_part_neighors)
-            landscape[agent.position].state = 0
+            landscape[agent.position].state = 3
             
           
 def partition_grid(landscape, num_agents):
@@ -311,20 +314,6 @@ def getStates(landscape):
     return(state_map)
 
 
-
-def  growTree(p,landscape):
-    """
-    GROW TREE AT I,J WITH PROBABILITY P
-    INPUT:
-    """
-
-    for i in range(len(landscape)):
-        for j in range(len(landscape)):
-            if landscape[i,j].getState() == 0:
-                if np.random.rand(1) < p:
-                    landscape[i,j].setState(2)
-    return(landscape)
-
 def check_contained(landscape,threshold):
     """
     FIRE CONTAINMENT TEST: visit all fire sights, if they have 
@@ -363,6 +352,15 @@ def max_risk_pos(landscape, potential_fire_sites):
     #return the riskiest site:
     return(riskiest)
     
+def get_fire_sites(landscape):
+    fire_sites = []
+    for i in range(len(landscape)):
+        for j in range(len(landscape)):
+            if landscape[i,j].getState() == 1:
+                fire_sites.append((i,j))
+    return(fire_sites)
+                
+
 
 def update_p_fire(landscape,gamma,zMax):
     """
@@ -382,14 +380,56 @@ def update_p_fire(landscape,gamma,zMax):
                 # ASSIGN RISK
                 if dzSum == 0:
                     dzSum =1
-                j.risk = gamma + (1-gamma)*(dzSum*nF)/(nS*zMax)
+                # TODO FIX THIS!!!!! PROBABILITY FUNCTION
+                j.risk = gamma + (1-gamma)*(dzSum)/(4*(nS*zMax))
             # IF CELL IS ALREADY ON FIRE, RISK IS ZERO
             else:
                 j.risk = 0
                 
-                
-def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize,num_agents):
-
+def fire_init(landscape,gamma, zMax,maxN,contained,threshold,init_time):
+    """
+    INITIALIZE FIRE BY RUNNING T TIMESTEPS OF THE FIRE PROPOGATION
+     """
+    stateMaps = []
+    fired = []
+    # START FIRE AT RANDOM SITE
+    i = int(len(landscape)/2)
+    j = int(len(landscape)/2)
+    # SET STATE OF CELL TO FIRE
+    landscape[i,j].setState(1)
+    # ADD TO LIST OF FIRED CELLS
+    fired.append((i,j))
+    t = 0
+    # BEGIN FIRE PROPOGATION
+    while t < init_time:
+        border = []
+        # CREATE FIRE BORDER BY VISTING FIRE CELLS THAT ARE NEIGHBORS WITH TREES
+        for site in fired:
+            # LOOP OVER LIST OF NEIGHBORS OF FIRE CELLS
+            for idxN,neighbor in enumerate(landscape[site].getN(landscape)):
+                # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
+                if landscape[neighbor].state == 2:
+                    border.append(neighbor)
+                    # TURN OLD FIRES INTO ASH/FIREBREAKS
+            if landscape[site].fireT == threshold:
+                landscape[site].setState(0)
+                # KEEP TRACK OF TIME THAT FIRE HAS BEEN BURNING AT A SITE
+            landscape[site].fireT += 1
+        # CONSIDER ALL BORDER SITES FOR POTENTIAL FIRE SPREADING
+        for site in border:
+            # DETERMINE PROBABILITY OF FIRE SPREAD
+            probFire = landscape[site].risk
+            # SET FIRE DEPENDING ON LIKELYHOOD
+            if probFire > np.random.rand():
+                landscape[site].setState(1)
+                fired.append(site)
+        t = t+1
+        # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
+        update_p_fire(landscape,gamma,zMax)
+        stateMaps.append(getStates(landscape))
+    return(stateMaps)              
+    
+def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemaps):
     """
     SEMI SYNCHRONOUS UPDATE.
   INPUTS
@@ -403,17 +443,11 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize,num_agen
    OUTPUTS
        1) Updated landscape matrix
        """
-
     stateMaps = []
     fired = []
-
-    # START FIRE AT RANDOM SITE
-    i = np.random.randint(0,len(landscape))
-    j = np.random.randint(0,len(landscape))
-    # SET STATE OF CELL TO FIRE
-    landscape[i,j].setState(1)
     # ADD TO LIST OF FIRED CELLS
-    fired.append((i,j))
+    fire_sites = get_fire_sites(landscape)
+    fired.extend(fire_sites)
     t = 0
     # BEGIN FIRE PROPOGATION
     while not contained:
@@ -438,29 +472,25 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,initialize,num_agen
             if probFire > np.random.rand():
                 landscape[site].setState(1)
                 fired.append(site)
-        t = t+1
-        if initialize == True:
-            if t > 5:
-                break
-        
-        if initialize == False:
-            agents = []
-            for g in range(num_agents):
-                A = Agent()
-                agents.append(A)
-            place_agent(landscape,agents)
-            update_agent(landscape,agents)
-
-            
+            # PLACE AGENTS ONLY ONCE
+            if t == 0:
+                agents = []
+                for g in range(num_agents):
+                    A = Agent()
+                    agents.append(A)
+                place_agent(landscape,agents)
+            if t != 0:
+                update_agent(landscape,agents)
+            t = t+1
         # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
         update_p_fire(landscape,gamma,zMax)
         stateMaps.append(getStates(landscape))
         contained = check_contained(landscape,threshold)
-        
     return(stateMaps)
 
-bowlSmall = np.load("50x50_bowl_zmax_10.npy")
 
+
+bowlSmall = np.load("50x50_bowl_zmax_10.npy")
 # initialize contained
 contained = False
 
@@ -480,32 +510,44 @@ for i in list(range(len(landscape))):
                 landscape[i][j].setDz(landscape)
 #TEST FIRE_PROP
 #initialize fire cluster
-stateMaps = fire_prop(landscape,.5,10,4,False,5,True,4)
-
-        
-
+stateMaps = fire_init(landscape,.5,10,4,False,5,4)
 # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
 partition_grid(landscape,4)
+#propogate fire
+state_maps = fire_prop(landscape,.5,10,4,False,5,4,stateMaps)
+
+
+
+
+
+
 
 part_map = np.zeros([40,40])
 for i in range(len(landscape)):
     for j in range(len(landscape)):
         part_map[i,j] = landscape[i,j].partition
-state_maps = fire_prop(landscape,.5,10,4,False,2,False,4)
 
-#fig, ax = plt.subplots(figsize=(15, 10));
-#cmap = ListedColormap(['w', 'r', 'green'])
-#cax = ax.matshow(state_maps[62],cmap=cmap)
-#
-#plt.contour(zVals, colors = "b")
-#plt.show()
-#
-#for i,frame in enumerate(state_maps):
-#    fig, ax = plt.subplots(figsize=(15, 10))
-#
-#    cmap = ListedColormap(['w', 'r', 'green'])
-#    cax = ax.matshow(frame,cmap=cmap)
-#    plt.contour(zVals, colors = "b")
-#    figname = "{}.png".format(i)
-#    plt.savefig(figname)
-#    plt.close(fig)
+fig, ax = plt.subplots(figsize=(15, 10));
+cmap = ListedColormap(['w', 'r', 'green','b'])
+cax = ax.matshow(state_maps[30],cmap=cmap)
+plt.contour(zVals, colors = "b")
+plt.show()
+
+
+fig, ax = plt.subplots(figsize=(15, 10));
+cmap = ListedColormap(['r', 'green'])
+cax = ax.matshow(stateMaps[1],cmap=cmap)
+
+plt.contour(zVals, colors = "b")
+plt.show()
+
+
+for i,frame in enumerate(state_maps):
+    fig, ax = plt.subplots(figsize=(15, 10))
+ 
+    cmap = ListedColormap(['w', 'r', 'green','b'])
+    cax = ax.matshow(frame,cmap=cmap)
+    plt.contour(zVals, colors = "b")
+    figname = "{}.png".format(i)
+    plt.savefig(figname)
+    plt.close(fig)
