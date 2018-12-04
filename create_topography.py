@@ -24,6 +24,8 @@ def fade(t):
     """
 
     return 6*t**5 - 15*t**4 + 10* t**3
+def grad(site, neighbors):
+    pass
 
 def lerp(a,b,X):
     return a + X * (b - a)
@@ -173,7 +175,7 @@ class Landscape(object):
         #update on_fire:
         self.on_fire = np.array(coords)
 
-    def perlin_terrain(self, f, noise, num_targets):
+    def perlin_terrain(self, f, noise, scale=100):
         """
             PERLIN_TERRAIN: Generates ranodom 2D height maps that mimic smoothed
                             terrain.
@@ -186,15 +188,22 @@ class Landscape(object):
                                    of a point across the 2D space.
                                    Acceptible Input:
                                             'Sinosoid': generates a sinosoidal
-                                                      surface centered at f+1.
+                                                      surface centered at h+1.
                                                       (see: https://docs.scipy.org/doc/scipy/reference/tutorial/interpolate.html)
 
-                                            'Perlin':
+                                            'Perlin': generates perlin noise
+                                                      over the 2D space to
+                                                      represent a height map.
+                                                      requires a scale input,
+                                                      which determines the
+                                                      amount of smoothing
+                                                      (i.e interpolation between
+                                                      sites on the lattice)
                                    Type: str
                     RETURNS:
                             2D nparray describing a height map.
         """
-
+        #NOTES:
         #octaves are the number of waves to combine
         #frequency is the number of oscillations per time step
         #amplitude is the height of any given point on the waveform
@@ -208,11 +217,45 @@ class Landscape(object):
             #calculate heights at each site (centered about Z= f + 1):
             Z = ((f*(X + Y) * np.exp(-f*(X**2 + Y**2)) + 1) *f + f) + 1
             self.top = Z
+
         if noise == 'Perlin':
 
+            #choose different intervals to pick samples from:
+            low_high = np.array([(0,1), (0.25, 0.75), (0.33, 0.67), (0.375, 0.625)])
+
+            #at each site in the grid, initialize some noise
             for j in range(self.L):
                 for i in range(self.L):
-                    self.top[i,j] = fade(np.random.randint(1,f))/self.L**2
+                    x = fade(np.random.uniform(low=0,high=1))*f
+                    y = fade(np.random.uniform(low=0,high=1))*f
+
+                    self.top[i,j] = x + y
+
+            #how much zooming in or out we wish to do (smoothing as a function of time):
+            t=0
+            while  t <= scale:
+                for site in self.indices:
+
+                    #choose the interval to sample from:
+                    lh = np.random.choice([0,1,2,3])
+
+                    #take a sample from the interval:
+                    rn = np.random.uniform(low=low_high[lh][0],
+                                           high=low_high[lh][1],
+                                           size=len(self.neighbors[site[0], site[1]]))
+
+                    #store the gradient interpolations:
+                    lerps = np.zeros(len(self.neighbors[site[0], site[1]]))
+
+                    # interpolate gradient given heights of sites neighbors:
+                    for idx, n in enumerate(self.neighbors[site[0], site[1]]):
+                        lerps[idx] = lerp(self.top[n], self.top[site[0], site[1]], rn[idx])
+
+                    #average over all gradients and save as a height:
+                    self.top[site[0], site[1]] = np.average(lerps)
+
+                #increment the time step:
+                t+=1
 
     def display_topography(self):
         X, Y = np.mgrid[:self.L, :self.L]
@@ -222,14 +265,8 @@ class Landscape(object):
         surf = ax.plot_surface(X,Y,self.top,cmap='Greens')
         plt.show()
 
-a = Landscape(L=100)
+#________________________________PLOTTING_______________________________________
+a = Landscape(L=50)
 a.get_neighbors()
-a.initialize_fire(5)
-plt.imshow(a.land)
-plt.show()
-# a.perlin_terrain(f=6, noise='Saddle', num_targets=3)
-# print(a.top)
-#a.gen_top('circle',0.293)
-# plt.imshow(a.top, cmap='Greens')
-# plt.show()
-#a.display_topography()
+a.perlin_terrain(f=2, noise='Perlin', scale=20)
+a.display_topography()
