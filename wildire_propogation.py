@@ -12,9 +12,7 @@ import matplotlib.colors as colors
 import sys
 
 class Cell():
-
     # constructor for cell
-
     def __init__(self,x,y,z,state):
         self.x = x
         self.y = y
@@ -45,7 +43,6 @@ class Cell():
     def getNState(self,landscape):
         i = self.x
         j = self.y
-
         try:
             n1 = landscape[i-1,j].getState()
         except:
@@ -221,7 +218,6 @@ def place_agent(landscape,agents):
     Given the landscape and the number of agents,
     place the agent in a partition of the landscape
     """
-    
     for num,agent in enumerate(agents):
         # Assign partition to agent
         agent.partition = num+1
@@ -246,9 +242,7 @@ def update_agent(landscape,agents):
         agent.set_partition_mates(landscape)
         agent_neighbor_set = set(landscape[agent.position].getN(landscape))
         cells_in_partition = set(agent.partition_mates)
-        
         neighbors_in_partition = agent_neighbor_set.intersection(cells_in_partition)
-        
         n_fire = []
         for n in neighbors_in_partition:
             if landscape[n].state == 2:
@@ -266,17 +260,14 @@ def update_agent(landscape,agents):
             agent.position = max_risk_pos(landscape,n_fire)
         except:
             pass
-
         landscape[agent.position].state = 3
         landscape[agent.position].risk = 0
             
-          
 def partition_grid(landscape, num_agents):
     """
     PARTITION LANDSCAPE INTO EITHER 2 OR 4 PARTITIONS PENDING OF THE NUMBER OF AGENTS
     USED TO CONTROL THE FIRE.
     """
-    
     # DRAW BOX AROUND CELLS THAT ARE ON FIRE
     fire_i = []
     fire_j = []
@@ -289,10 +280,8 @@ def partition_grid(landscape, num_agents):
     max_j = max(fire_j)
     min_i = min(fire_i)
     min_j = min(fire_j)
-
     centroid_i = int((max_i-min_i)/2 + min_i)
     centroid_j = int((max_j-min_j)/2 + min_j)
-
     if num_agents <4:
         for i in landscape:
             for j in i:
@@ -326,7 +315,6 @@ def getStates(landscape):
             state_map[j.position] = j.state
     return(state_map)
 
-
 def check_contained(landscape,threshold):
     """
     FIRE CONTAINMENT TEST: visit all fire sights, if they have 
@@ -347,21 +335,17 @@ def check_contained(landscape,threshold):
         contained = True
     return(contained)
 
-    
 def max_risk_pos(landscape, potential_fire_sites):
     """
         MAX_RISK_POS: calculates the riskiest site for the agent to move to
     """
     #store a list of risks:
     risks = []
-
     #get the risk values for the potential fire sites:
     for site in potential_fire_sites:
         risks.append(landscape[site].risk)
-
     #get the coordinate for the most risky site:
     riskiest = potential_fire_sites[np.argmax(risks)]
-
     #return the riskiest site:
     return(riskiest)
     
@@ -373,8 +357,6 @@ def get_fire_sites(landscape):
                 fire_sites.append((i,j))
     return(fire_sites)
                 
-
-
 def update_p_fire(landscape,gamma,zMax):
     """
     UPDATE RISK OF EVERY CELL IN THE LANDSCAPE 
@@ -485,21 +467,21 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemap
             if probFire > np.random.rand():
                 landscape[site].setState(1)
                 fired.append(site)
-            # PLACE AGENTS ONLY ONCE
-            if t == 0:
-                agents = []
-                for g in range(num_agents):
-                    A = Agent()
-                    agents.append(A)
-                place_agent(landscape,agents)
-            if t != 0:
-                update_agent(landscape,agents)
-                update_p_fire(landscape,gamma,zMax)
-                update_agent(landscape,agents)
-                update_agent(landscape,agents)
+        # PLACE AGENTS ONLY ONCE
+        if t == 0:
+            agents = []
+            for g in range(num_agents):
+                A = Agent()
+                agents.append(A)
+            place_agent(landscape,agents)
+        if t != 0:
+            update_agent(landscape,agents)
+            update_p_fire(landscape,gamma,zMax)
+            update_agent(landscape,agents)
+            update_agent(landscape,agents)
 
 
-            t = t+1
+        t = t+1
         # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
         update_p_fire(landscape,gamma,zMax)
         stateMaps.append(getStates(landscape))
@@ -545,7 +527,7 @@ for i in range(len(landscape)):
 
 fig, ax = plt.subplots(figsize=(15, 10));
 cmap = colors.ListedColormap(['white', 'red', 'green','blue'])
-img = ax.imshow(state_maps[65], interpolation = 'nearest', cmap = cmap)
+img = ax.imshow(state_maps[1], interpolation = 'nearest', cmap = cmap)
 plt.contour(zVals, colors = "b")
 plt.show()
 
@@ -553,17 +535,15 @@ plt.show()
 fig, ax = plt.subplots(figsize=(15, 10));
 cmap = ListedColormap(['r', 'green'])
 cax = ax.matshow(stateMaps[-1],cmap=cmap)
-
 plt.contour(zVals, colors = "b")
 plt.show()
 
 
-#for i,frame in enumerate(state_maps):
-#    fig, ax = plt.subplots(figsize=(15, 10))
-# 
-#    cmap = ListedColormap(['w', 'r', 'green','b'])
-#    cax = ax.matshow(frame,cmap=cmap)
-#    plt.contour(zVals, colors = "b")
-#    figname = "{}.png".format(i)
-#    plt.savefig(figname)
-#    plt.close(fig)
+for i,frame in enumerate(state_maps):
+    fig, ax = plt.subplots(figsize=(15, 10))
+    cmap = colors.ListedColormap(['w', 'r', 'green','b'])
+    cax = ax.matshow(frame,cmap=cmap)
+    plt.contour(zVals, colors = "b")
+    figname = "{}.png".format(i)
+    plt.savefig(figname)
+    plt.close(fig)
