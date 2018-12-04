@@ -6,9 +6,9 @@ Created on Wed Oct 17 22:22:42 2018
 """
 import numpy as np
 from collections import Counter
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 import matplotlib.animation as animation
-from matplotlib.colors import ListedColormap
+import matplotlib.colors as colors
 import sys
 
 class Cell():
@@ -239,6 +239,9 @@ def place_agent(landscape,agents):
         landscape[agent.position].state = 3
         
 def update_agent(landscape,agents):
+    """
+    Update the position of the agent based to block off the neighbors of the cells with the highest risk of catching fire
+    """
     for agent in agents:
         agent.set_partition_mates(landscape)
         agent_neighbor_set = set(landscape[agent.position].getN(landscape))
@@ -247,23 +250,33 @@ def update_agent(landscape,agents):
         neighbors_in_partition = agent_neighbor_set.intersection(cells_in_partition)
         
         n_fire = []
-        for cell in agent.partition_mates:
-            if landscape[cell].state == 1:
-                n_fire.extend(list(set(landscape[cell].getN(landscape)).intersection(set(agent.partition_mates))))
-        fires_part_neighors = list(neighbors_in_partition.intersection(set(n_fire)))
-        if len(fires_part_neighors) == 0:
+        for n in neighbors_in_partition:
+            if landscape[n].state == 2:
+                n_fire.append(n)
+                
+#        for cell in agent.partition_mates:
+#            if landscape[cell].state == 1:
+#                n_fire.extend(list(set(landscape[cell].getN(landscape)).intersection(set(agent.partition_mates))))
+#        fires_part_neighors = list(neighbors_in_partition.intersection(set(n_fire)))
+#        
+#        if len(fires_part_neighors) == 0:
+#            pass
+#        else:
+        try:
+            agent.position = max_risk_pos(landscape,n_fire)
+        except:
             pass
-        else:
-            agent.position = max_risk_pos(landscape,fires_part_neighors)
-            landscape[agent.position].state = 3
+
+        landscape[agent.position].state = 3
+        landscape[agent.position].risk = 0
             
           
 def partition_grid(landscape, num_agents):
     """
     PARTITION LANDSCAPE INTO EITHER 2 OR 4 PARTITIONS PENDING OF THE NUMBER OF AGENTS
     USED TO CONTROL THE FIRE.
-
     """
+    
     # DRAW BOX AROUND CELLS THAT ARE ON FIRE
     fire_i = []
     fire_j = []
@@ -481,14 +494,17 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemap
                 place_agent(landscape,agents)
             if t != 0:
                 update_agent(landscape,agents)
+                update_p_fire(landscape,gamma,zMax)
+                update_agent(landscape,agents)
+                update_agent(landscape,agents)
+
+
             t = t+1
         # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
         update_p_fire(landscape,gamma,zMax)
         stateMaps.append(getStates(landscape))
         contained = check_contained(landscape,threshold)
     return(stateMaps)
-
-
 
 bowlSmall = np.load("50x50_bowl_zmax_10.npy")
 # initialize contained
@@ -514,7 +530,7 @@ stateMaps = fire_init(landscape,.5,10,4,False,5,4)
 # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
 partition_grid(landscape,4)
 #propogate fire
-state_maps = fire_prop(landscape,.5,10,4,False,5,4,stateMaps)
+state_maps = fire_prop(landscape,.5,10,4,False,10,4,stateMaps)
 
 
 
@@ -528,26 +544,26 @@ for i in range(len(landscape)):
         part_map[i,j] = landscape[i,j].partition
 
 fig, ax = plt.subplots(figsize=(15, 10));
-cmap = ListedColormap(['w', 'r', 'green','b'])
-cax = ax.matshow(state_maps[30],cmap=cmap)
+cmap = colors.ListedColormap(['white', 'red', 'green','blue'])
+img = ax.imshow(state_maps[65], interpolation = 'nearest', cmap = cmap)
 plt.contour(zVals, colors = "b")
 plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15, 10));
 cmap = ListedColormap(['r', 'green'])
-cax = ax.matshow(stateMaps[1],cmap=cmap)
+cax = ax.matshow(stateMaps[-1],cmap=cmap)
 
 plt.contour(zVals, colors = "b")
 plt.show()
 
 
-for i,frame in enumerate(state_maps):
-    fig, ax = plt.subplots(figsize=(15, 10))
- 
-    cmap = ListedColormap(['w', 'r', 'green','b'])
-    cax = ax.matshow(frame,cmap=cmap)
-    plt.contour(zVals, colors = "b")
-    figname = "{}.png".format(i)
-    plt.savefig(figname)
-    plt.close(fig)
+#for i,frame in enumerate(state_maps):
+#    fig, ax = plt.subplots(figsize=(15, 10))
+# 
+#    cmap = ListedColormap(['w', 'r', 'green','b'])
+#    cax = ax.matshow(frame,cmap=cmap)
+#    plt.contour(zVals, colors = "b")
+#    figname = "{}.png".format(i)
+#    plt.savefig(figname)
+#    plt.close(fig)
