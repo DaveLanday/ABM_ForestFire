@@ -4,7 +4,7 @@
 
 #create_topography.py
 #David W. Landay
-#LAST UPDATED: 12-02-2018
+#LAST UPDATED: 12-03-2018
 
 import sys
 import numpy as np
