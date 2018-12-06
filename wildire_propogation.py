@@ -163,8 +163,7 @@ class Cell():
     # Get height of cell
     def getZ(self):
         return(self.z)
-
-
+        
     # Set dz values between site and neighbouring nodes
     def setDz(self,landscape):
         #INITIALIZD DELZ AS NONE
@@ -172,18 +171,19 @@ class Cell():
         self.dz4 = None
         self.dz1 = None
         self.dz3 = None
-
+        for i in range(len(landscape)):
+            for j in range(len(landscape)):
         # Exception for higher borders of grid
-        try:
-            self.dz1 = landscape[i,j].getZ() - landscape[i+1,j].getZ()
-            self.dz3 = landscape[i,j].getZ() - landscape[i,j+1].getZ()
-        except:
-            IndexError
-        # Exception for lower borders of grid
-        if i!= 0:
-            self.dz2 = landscape[i,j].getZ() - landscape[i-1,j].getZ()
-        if j!= 0:
-            self.dz4 = landscape[i,j].getZ() - landscape[i,j-1].getZ()
+                try:
+                    self.dz1 = landscape[i,j].getZ() - landscape[i+1,j].getZ()
+                    self.dz3 = landscape[i,j].getZ() - landscape[i,j+1].getZ()
+                except:
+                    IndexError
+                # Exception for lower borders of grid
+                if i!= 0:
+                    self.dz2 = landscape[i,j].getZ() - landscape[i-1,j].getZ()
+                if j!= 0:
+                    self.dz4 = landscape[i,j].getZ() - landscape[i,j-1].getZ()
 
     def getDz(self):
         return(self.dz1,self.dz2,self.dz3,self.dz4)
