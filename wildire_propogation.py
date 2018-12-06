@@ -13,9 +13,10 @@ Created on Wed Oct 17 22:22:42 2018
 """
 import numpy as np
 from collections import Counter
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.colors as colors
+import argparse
 import sys
 import os
 
@@ -39,7 +40,7 @@ class Cell():
         self.p = []
         self.maxDz = 0
         self.spatial_risk = None
-        
+
     def getNTFire(self,landscape):
         """Get fire times of all neighbors
         """
@@ -48,7 +49,7 @@ class Cell():
         for n in self.getN(landscape):
             neighbor_fire_times.append(landscape[n].fireT)
         return(neighbor_fire_times)
-    
+
 
     def getNState(self,landscape):
         i = self.x
@@ -163,7 +164,7 @@ class Cell():
     # Get height of cell
     def getZ(self):
         return(self.z)
-        
+
     # Set dz values between site and neighbouring nodes
     def setDz(self,landscape):
         #INITIALIZD DELZ AS NONE
@@ -201,15 +202,15 @@ class Cell():
         zs.extend([1])
         self.dzMax = np.max(zs)
         return(sumDz)
-        
-        
+
+
 class Agent():
-    
+
     def __init__ (self):
         self.position = None
         self.partition = None
         self.partition_mates = None
-        
+
     def set_partition_mates(self,landscape):
         """
         Get list of all cells in the same partition as agent
@@ -221,10 +222,10 @@ class Agent():
                 if self.partition == landscape[i,j].partition:
                     partition_mates.append((i,j))
         self.partition_mates = partition_mates
-                    
-        
-    
-    
+
+
+
+
 def place_agent(landscape,agents,gamma,zMax):
     """
     Given the landscape and the number of agents,
@@ -240,22 +241,22 @@ def place_agent(landscape,agents,gamma,zMax):
                 # IF SITE IS ON FIRE AND IN PARTITION, APPEND TO PART_FIRE_SITES
                 if landscape[i,j].partition == num+1 and landscape[i,j].state == 1:
                     partition_fire_sites.append((i,j))
-        
+
         # GET LIST OF NEIGHBORS OF THE FIRE CELLS
         nieghbor_position = []
         for site in partition_fire_sites:
             nieghbor_position.extend(landscape[site].getN(landscape))
-            
+
         # GET LIST OF CELLS IN PARTITION
         cells_in_partition = agent.partition_mates
         nieghbor_partition_pos = list(set(nieghbor_position).intersection(cells_in_partition))
-        
+
         # Get site with maximum risk out of the potential sites
         risk_nieghbor = max_risk_pos(landscape,nieghbor_partition_pos,True)
         landscape[risk_nieghbor].state = 1
         update_p_fire(landscape,gamma,zMax)
-        
-      
+
+
         # ReASSIGN POSITION
         agent_positions = list(set(landscape[risk_nieghbor].getN(landscape)).intersection(cells_in_partition))
         safe_agent_positions = []
@@ -263,7 +264,7 @@ def place_agent(landscape,agents,gamma,zMax):
             for n_site in landscape[site].getN(landscape):
                 if 1 not in landscape[n_site].getNState(landscape):
                     safe_agent_positions.append(site)
-                
+
         # REMOVE ANY POSITIONS THAT ARE NEIGHBORS OF FIRE
         position = max_risk_pos(landscape,safe_agent_positions,True)
         agent.position = position
@@ -272,7 +273,7 @@ def place_agent(landscape,agents,gamma,zMax):
         landscape[risk_nieghbor].state = 2
         update_p_fire(landscape,gamma,zMax)
 
-        
+
 def update_agent(landscape,agents):
     """
     Update the position of the agent based to block off the neighbors of the cells with the highest risk of catching fire.
@@ -287,40 +288,40 @@ def update_agent(landscape,agents):
         for n in agent_neighbor_set:
             if landscape[n].state == 2:
                 possible.append(n)
-                
-        
+
+
         not_fire_neighbors = []
         for site in possible:
             if 1 not in landscape[site].getNState(landscape):
                 not_fire_neighbors.append(site)
-        
+
         next_not_fire_neighbors = []
         for site in not_fire_neighbors:
             if 1 not in landscape[site].getNState(landscape):
                 next_not_fire_neighbors.append(site)
-        
+
 #        for cell in agent.partition_mates:
 #            if landscape[cell].state == 1:
 #                n_fire.extend(list(set(landscape[cell].getN(landscape)).intersection(set(agent.partition_mates))))
 #        fires_part_neighors = list(neighbors_in_partition.intersection(set(n_fire)))
-#        
+#
 #        if len(fires_part_neighors) == 0:
 #            pass
 #        else:
-            
+
         next_pos = agent.position
         try:
             next_pos = max_risk_pos(landscape,next_not_fire_neighbors,True)
         except:
             pass
-                
+
         agent.position = next_pos
         landscape[agent.position].state = 3
         landscape[agent.position].risk = 0
-        
-        
-        
-            
+
+
+
+
 def partition_grid(landscape, num_agents):
     """
     PARTITION LANDSCAPE INTO EITHER 2 OR 4 PARTITIONS PENDING OF THE NUMBER OF AGENTS
@@ -364,7 +365,7 @@ def partition_grid(landscape, num_agents):
                 elif j.position[0] >= centroid_i and j.position[1] >= centroid_j:
                     j.partition = 4
     return(centroid_i,centroid_j)
-        
+
 def getStates(landscape):
     """ RETURN ARRAY WITH THE STATE OF EVERY SITE IN LANDSCAPE"""
     state_map = np.zeros([len(landscape), len(landscape)])
@@ -375,10 +376,10 @@ def getStates(landscape):
 
 def check_contained(landscape,threshold):
     """
-    FIRE CONTAINMENT TEST: visit all fire sights, if they have 
+    FIRE CONTAINMENT TEST: visit all fire sights, if they have
     neighboring  trees, the fire is not contained.
-    
-    Fire cells that will expire 
+
+    Fire cells that will expire
     INPUT: landscape at time t
     OUTPUT: boolean
     """
@@ -405,16 +406,16 @@ def max_risk_pos(landscape, potential_fire_sites,place):
     for site in potential_fire_sites:
         risks.append(landscape[site].risk)
         spatial_risks.append(landscape[site].spatial_risk)
-    
+
     #get the coordinate for the most risky site:
     if place == True:
         riskiest = potential_fire_sites[np.argmax(spatial_risks)]
     else:
         riskiest = potential_fire_sites[np.argmax(risks)]
-    
+
     #return the riskiest site:
     return(riskiest)
-    
+
 def get_fire_sites(landscape):
     fire_sites = []
     for i in range(len(landscape)):
@@ -422,7 +423,7 @@ def get_fire_sites(landscape):
             if landscape[i,j].getState() == 1:
                 fire_sites.append((i,j))
     return(fire_sites)
-    
+
 def spatial_risk_mat(landscape):
     spat_r = np.zeros([len(landscape),len(landscape)])
     for i in range(len(landscape)):
@@ -430,10 +431,10 @@ def spatial_risk_mat(landscape):
             spat_r[i,j] = landscape[(i,j)].spatial_risk
     return(spat_r)
 
-                
+
 def update_p_fire(landscape,gamma,zMax):
     """
-    UPDATE RISK OF EVERY CELL IN THE LANDSCAPE 
+    UPDATE RISK OF EVERY CELL IN THE LANDSCAPE
     """
     for i in landscape:
         for j in i:
@@ -441,7 +442,7 @@ def update_p_fire(landscape,gamma,zMax):
             if j.state == 2:
                 # GET STATES OF BORDERS SITES NEIGHBORS
                 nStates = j.getNState(landscape)
-                # GET SUM OF DELTA Z 
+                # GET SUM OF DELTA Z
                 dzSum = j.getDzSum(landscape)
                 nF = Counter(nStates)
                 nF = nF[1]
@@ -466,7 +467,7 @@ def update_spatial_risk(landscape):
                 j.spatial_risk = 0
             else:
                 j.spatial_risk = max(1/dist_from_fire)
-                
+
 def fire_init(landscape,gamma, zMax,maxN,contained,threshold,init_time):
     """
     INITIALIZE FIRE BY RUNNING T TIMESTEPS OF THE FIRE PROPOGATION
@@ -509,8 +510,8 @@ def fire_init(landscape,gamma, zMax,maxN,contained,threshold,init_time):
         update_p_fire(landscape,gamma,zMax)
         update_spatial_risk(landscape)
         stateMaps.append(getStates(landscape))
-    return(stateMaps)              
-    
+    return(stateMaps)
+
 def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemaps):
     """
     SEMI SYNCHRONOUS UPDATE.
@@ -576,64 +577,247 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemap
 
         contained = check_contained(landscape,threshold)
     return(stateMaps,risk_maps)
+def save_maps(maps, f_name, outDir):
+    """
+        SAVE_MAPS: saves the state maps as individual .npy files so that the vacc
+                   can easily create analyses and plots  at each time-step
 
-bowlSmall = np.load("150x150_bowl_z_10.npy")
-# initialize contained
-contained = False
+                 ARGS:
+                      Maps: the statemaps array compiled by make_sim().
+                            Type: ndarray
 
-#zVals= np.random.randint(1,10,[N,N])
-zVals = bowlSmall
-N = len(zVals)
-landscape = np.ndarray([N,N],dtype = Cell)
-for i,ik in enumerate(zVals):
-    for j,jk in enumerate(ik):
-        z = zVals[i,j]
-        a = Cell(i,j,z,2)
-        landscape[i,j] = a
+                      f_name: name of the file to save. Type: str
 
-# SET HEIGHTS OF CELLS
-for i in list(range(len(landscape))):
-            for j in list(range(len(landscape))):
-                landscape[i][j].setDz(landscape)
-#TEST FIRE_PROP
-#initialize fire cluster
-stateMaps = fire_init(landscape,.5,10,4,False,5,4)
-# IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
-partition_grid(landscape,4)
-#propogate fire
-state_maps,risk_mats = fire_prop(landscape,.1,10,4,False,10,4,stateMaps)
+                      outDir: path to the ouput directory where files should b
+                              saved. Type: str
+
+              RETURN:
+                    NONE, saves the maps as individual .npy files
+    """
+
+    #make the directory:
+    try:
+        os.mkdir(outDir)
+    except:
+        pass
+
+    #save the file:
+    np.save(outDir+'/'+f_name, maps)
+
+def parser():
+    """
+    ##########################__WILDFIRE_PROPAGATION__##########################
+    An agent based model to simulate strategies to combat the spread of wildfire.
+    """
+
+    #create the argument parser:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    #add some positional arguments:
+
+    #file to the .npy file representing topography:
+    parser.add_argument('-i',
+                        '--inFile',
+                        help='Path to input file (.npy 2D matrix)',
+                        required=True,
+                        type=str)
+
+    #choose a gamma:
+    parser.add_argument('-g',
+                        '--gamma',
+                        help='Probability that a site catches fire, given its neighbors are on the same plane (dz = 0)',
+                        type=float,
+                        default=0.5)
+
+    #choose number of agents:
+    parser.add_argument('-a',
+                        '--numAgents',
+                        help='Number of agents to place on the map',
+                        type=int,
+                        default=4)
+
+    #choose threshold:
+    parser.add_argument('-t',
+                        '--threshold',
+                        help='amount of time a site can remain on fire before extinguishing',
+                        type=int,
+                        default=4)
+
+    #number of statemaps:
+    parser.add_argument('-s',
+                        '--initTime',
+                        help='amount of time allowed for the fire to initialize',
+                        type=int,
+                        default=5)
+
+    #where do you want to save output?
+    parser.add_argument('-o',
+                        '--outDir',
+                        help='Path to output directory (where to save landscape statemap and spatial risk maps at each timestep)',
+                        required=True,
+                        type=str)
+
+
+    return parser.parse_args()
+
+def make_sim(infile, outDir, **kwargs):
+    """
+        MAKE_SIM: Runs an agent based model, whereby agents are tasked at
+                  containing the spread of a wildfire over a topographical
+                  surface, while maximizing the density of the forest
+                  (i.e. num_trees / total_area).
+
+                ARGS:
+                    infile: path to a matrix representing the topography of the
+                    model space. Type: str
+
+                    outDir: a path to the desired output directory. Type: str
+
+            RETURNS:
+                    NONE, saves sitemaps and spatial risk maps at each timestep
+    """
+
+    #get commandline arguments:
+    gamma      = kwargs.get('gamma', 0.5)
+    num_agents = kwargs.get('numAgents', 4)
+    threshold  = kwargs.get('threshold', 4)
+    init_time  = kwargs.get('initTime', 5)
+
+    #load in the height map:
+    height_map = np.load(infile)
+    z_max = np.max(height_map)
+
+    #the initial state of the fire is not contained:
+    contained = False
+
+    #create a landscape from the height_maps:
+    L = len(height_map)
+    landscape = np.ndarray([L,L], dtype=Cell)
+
+    #give cells relevamt information, plant trees at all sites:
+    for i,ik in enumerate(height_map):
+        for j,jk in enumerate(ik):
+            z = height_map[i,j]
+            a = Cell(i,j,z,2)
+            landscape[i,j] = a
+
+    #set delta-zs of all cells
+    for i in list(range(len(landscape))):
+        for j in list(range(len(landscape))):
+            landscape[i][j].setDz(landscape)
+
+    #initialize fire cluster: landscape,gamma, zMax,maxN,contained,threshold,init_time
+    stateMaps = fire_init(landscape,
+                          gamma,
+                          z_max,
+                          4,
+                          contained,
+                          threshold,
+                          init_time)
+    # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
+    partition_grid(landscape,4)
+    #propogate fire: landscape, gamma, zMax,maxN,contained,threshold,num_agents,statemaps
+    state_maps, risk_mats = fire_prop(landscape,
+                                     gamma,
+                                     z_max,
+                                     4,
+                                     contained,
+                                     threshold,
+                                     num_agents,
+                                     stateMaps)
+
+    #save the files: maps, f_name, outDir
+    for i, maps in enumerate(state_maps):
+        save_maps(maps, str(i)+'_state_map', outDir)
+
+    for i, risks in enumerate(risk_mats):
+        save_maps(risks, str(i)+'_risk_mat', outDir)
+
+def main():
+    """
+        MAIN: takes commandline arguments and runs a simulation of the model
+              based on input parameters ( see parser() ).
+
+            ARGS:
+                NONE, uses commandline input from user
+
+        RETURNS:
+                NONE, saves the statemaps and the spatial risk maps to the
+                specified output dir.
+    """
+
+    #get the arguments passed into the commandline prompt:
+    args = parser()
+
+    #run the simulation:
+    make_sim(infile=args.inFile,
+             outDir=args.outDir,
+             gamma=args.gamma,
+             numAgents=args.numAgents,
+             threshold=args.threshold,
+             initTime=args.initTime)
+
+if __name__ == '__main__':
+    main()
 #
-#risk_space_map = np.zeros([len(landscape),len(landscape)])
-#part_map = np.zeros([len(landscape),len(landscape)])
-#for i in range(len(landscape)):
-#    for j in range(len(landscape)):
-#        part_map[i,j] = landscape[i,j].state
-#        risk_space_map[i,j] = landscape[i,j].spatial_risk
-
-
+# bowlSmall = np.load("150x150_bowl_z_10.npy")
+# # initialize contained
+# contained = False
 #
-#fig, ax = plt.subplots(figsize=(15, 10));
-#img = ax.imshow(risk_mats[42], interpolation = 'nearest')
-#plt.contour(zVals, colors = "b")
-#plt.show()
-
-a = os.getcwd()
-os.chdir('gif1')
-for i,frame in enumerate(state_maps):
-    fig, ax = plt.subplots(figsize=(15, 10))
-    cmap = colors.ListedColormap(['white', 'red', 'green','blue'])
-    cax = ax.matshow(frame,cmap = cmap)
-    plt.contour(zVals, colors = "b")
-    figname = "{}.png".format(i)
-    plt.savefig(figname)
-    plt.close(fig)
-
-
-for i,frame in enumerate(risk_mats):
-    fig, ax = plt.subplots(figsize=(15, 10))
-    cax = ax.matshow(frame)
-    plt.contour(zVals, colors = "b")
-    figname = "risk{}.png".format(i)
-    plt.savefig(figname)
-    plt.close(fig)
-os.chdir(a)
+# #zVals= np.random.randint(1,10,[N,N])
+# zVals = bowlSmall
+# N = len(zVals)
+# landscape = np.ndarray([N,N],dtype = Cell)
+# for i,ik in enumerate(zVals):
+#     for j,jk in enumerate(ik):
+#         z = zVals[i,j]
+#         a = Cell(i,j,z,2)
+#         landscape[i,j] = a
+#
+# # SET HEIGHTS OF CELLS
+# for i in list(range(len(landscape))):
+#             for j in list(range(len(landscape))):
+#                 landscape[i][j].setDz(landscape)
+# #TEST FIRE_PROP
+# #initialize fire cluster
+# stateMaps = fire_init(landscape,.5,10,4,False,5,4)
+# # IF CELL HAS A NEIGHBOR THAT IS A TREE, ADD TREE CELL TO BORDER
+# partition_grid(landscape,4)
+# #propogate fire
+# state_maps,risk_mats = fire_prop(landscape,.1,10,4,False,10,4,stateMaps)
+# #
+# #risk_space_map = np.zeros([len(landscape),len(landscape)])
+# #part_map = np.zeros([len(landscape),len(landscape)])
+# #for i in range(len(landscape)):
+# #    for j in range(len(landscape)):
+# #        part_map[i,j] = landscape[i,j].state
+# #        risk_space_map[i,j] = landscape[i,j].spatial_risk
+#
+#
+# #
+# #fig, ax = plt.subplots(figsize=(15, 10));
+# #img = ax.imshow(risk_mats[42], interpolation = 'nearest')
+# #plt.contour(zVals, colors = "b")
+# #plt.show()
+#
+# a = os.getcwd()
+# os.chdir('gif1')
+# for i,frame in enumerate(state_maps):
+#     fig, ax = plt.subplots(figsize=(15, 10))
+#     cmap = colors.ListedColormap(['white', 'red', 'green','blue'])
+#     cax = ax.matshow(frame,cmap = cmap)
+#     plt.contour(zVals, colors = "b")
+#     figname = "{}.png".format(i)
+#     plt.savefig(figname)
+#     plt.close(fig)
+#
+#
+# for i,frame in enumerate(risk_mats):
+#     fig, ax = plt.subplots(figsize=(15, 10))
+#     cax = ax.matshow(frame)
+#     plt.contour(zVals, colors = "b")
+#     figname = "risk{}.png".format(i)
+#     plt.savefig(figname)
+#     plt.close(fig)
+# os.chdir(a)
