@@ -175,7 +175,7 @@ class Landscape(object):
         #update on_fire:
         self.on_fire = np.array(coords)
 
-    def perlin_terrain(self, f, noise, scale=100):
+    def perlin_terrain(self, f, noise, scale=100, save=False):
         """
             PERLIN_TERRAIN: Generates ranodom 2D height maps that mimic smoothed
                             terrain.
@@ -185,7 +185,7 @@ class Landscape(object):
                               (phase displacement shift/ translation). Type: int
 
                             noise: the noise function that defines the deformation
-                                   of a point across the 2D space.
+                                   of a point across the 2D space. Type: str
                                    Acceptible Input:
                                             'Sinosoid': generates a sinosoidal
                                                       surface centered at h+1.
@@ -199,7 +199,13 @@ class Landscape(object):
                                                       amount of smoothing
                                                       (i.e interpolation between
                                                       sites on the lattice)
-                                   Type: str
+
+                            scale: the amount of smoothing. Type: int
+
+                            save: whether to save self.top as a numpy object after
+                                  each time scale increment. (default = True)
+                                  Type: boolean
+
                     RETURNS:
                             2D nparray describing a height map.
         """
@@ -254,8 +260,40 @@ class Landscape(object):
                     #average over all gradients and save as a height:
                     self.top[site[0], site[1]] = np.average(lerps)
 
+                if save:
+                    self.save_topography('./topography_example/perlin_'+ str(self.L)+'_x_'+str(self.L)+'_'+str(t))
+
                 #increment the time step:
                 t+=1
+
+    def save_topography(self, file_path):
+        """
+            SAVE_TOPOGRAPHY: saves the topography matrix as a numpy object
+
+                           ARGS:
+                                file_path: name of the npy file, path to
+                                           topography matrix
+
+                        RETURNS:
+                                NONE, saves output to a destination
+        """
+
+        np.save(file_path, self.top)
+
+
+
+    def load_topography(self, file_path):
+        """
+            LOAD_TOPOGRAPHY: loads a numpy array representing a topography
+                             matrix.
+
+                           ARGS:
+                                file_path: nameof the npy file representing the
+                                           topography matrix (.npy extension).
+                                           Type: str
+        """
+
+        self.top = np.load(file_path)
 
     def display_topography(self):
         X, Y = np.mgrid[:self.L, :self.L]
@@ -268,5 +306,6 @@ class Landscape(object):
 #________________________________PLOTTING_______________________________________
 a = Landscape(L=50)
 a.get_neighbors()
-a.perlin_terrain(f=2, noise='Perlin', scale=20)
+a.load_topography('./topography_example/perlin_50_x_50_100.npy')
+# a.perlin_terrain(f=10, noise='Perlin', scale=100, save=True)
 a.display_topography()
