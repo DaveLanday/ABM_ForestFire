@@ -658,10 +658,16 @@ def parser():
                         required=True,
                         type=str)
 
+    parser.add_argument('-n',
+                        '--simNumber',
+                        help='Indicates the trial number for the simulation you are conducting, i.e: the number of runs of the simulation that you have conducted',
+                        required=True,
+                        type=int)
+
 
     return parser.parse_args()
 
-def make_sim(infile, outDir, **kwargs):
+def make_sim(infile, outDir, simNumber, **kwargs):
     """
         MAKE_SIM: Runs an agent based model, whereby agents are tasked at
                   containing the spread of a wildfire over a topographical
@@ -730,10 +736,14 @@ def make_sim(infile, outDir, **kwargs):
     file = infile.split('/')[-1]
     #save the files: maps, f_name, outDir
     for i, maps in enumerate(state_maps):
-        save_maps(maps, str(i)+'_'+file[:-5]+'_state_map', outDir)
+        save_maps(maps,
+                  str(i)+'_'+file[:-4]+'_state_map',
+                  outDir+'/'+str(simNumber)+'_'+file[:-4])
 
     for i, risks in enumerate(risk_mats):
-        save_maps(risks, str(i)+'_'+file[:-5]+'_risk_mat', outDir)
+        save_maps(risks,
+                  str(i)+'_'+file[:-4]+'_risk_mat',
+                  outDir+'/'+str(simNumber)+'_'+file[:-4])
 
 def main():
     """
@@ -757,7 +767,8 @@ def main():
              gamma=args.gamma,
              numAgents=args.numAgents,
              threshold=args.threshold,
-             initTime=args.initTime)
+             initTime=args.initTime,
+             simNumber=args.simNumber)
 
 if __name__ == '__main__':
     main()
