@@ -727,12 +727,13 @@ def make_sim(infile, outDir, **kwargs):
                                      num_agents,
                                      stateMaps)
 
+    file = infile.split('/')[-1]
     #save the files: maps, f_name, outDir
     for i, maps in enumerate(state_maps):
-        save_maps(maps, str(i)+'_state_map', outDir)
+        save_maps(maps, str(i)+'_'+file[:-5]+'_state_map', outDir)
 
     for i, risks in enumerate(risk_mats):
-        save_maps(risks, str(i)+'_risk_mat', outDir)
+        save_maps(risks, str(i)+'_'+file[:-5]+'_risk_mat', outDir)
 
 def main():
     """
