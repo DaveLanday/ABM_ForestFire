@@ -319,7 +319,15 @@ def update_agent(landscape,agents):
         landscape[agent.position].state = 3
         landscape[agent.position].risk = 0
 
-
+def update_dz(landscape):
+    for i in landscape:
+        for j in i:
+            nbs = j.getN(landscape)
+            dzs = []
+            for n in nbs:
+                dzs.append(landscape[n].getZ()-j.z)
+            j.dzMax = np.max(dzs)
+    return(max(dzs))
 
 
 def partition_grid(landscape, num_agents):
@@ -449,9 +457,11 @@ def update_p_fire(landscape,gamma,zMax):
                 nS = len(nStates)
                 # ASSIGN RISK
                 if dzSum == 0:
-                    dzSum =1
+                    dzSum = 1
                 # TODO FIX THIS!!!!! PROBABILITY FUNCTION
-                j.risk = gamma + (1-gamma)*(dzSum)/(nS*2)#j.maxDz)
+                if j.maxDz == 0:
+                    j.maxDz=1
+                j.risk = gamma + ((1-gamma)*(dzSum))/(nS*2*j.maxDz)#j.maxDz)
             # IF CELL IS ALREADY ON FIRE, RISK IS ZERO
             else:
                 j.risk = 0
@@ -512,7 +522,7 @@ def fire_init(landscape,gamma, zMax,maxN,contained,threshold,init_time):
         stateMaps.append(getStates(landscape))
     return(stateMaps)
 
-def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemaps):
+def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemaps, num_blocks):
     """
     SEMI SYNCHRONOUS UPDATE.
   INPUTS
@@ -571,9 +581,10 @@ def fire_prop(landscape,gamma, zMax,maxN,contained,threshold,num_agents,statemap
 
         t = t+1
         # UPDATE RISK VALUES FOR ALL CELLS IN LANDSCAPE
-        update_p_fire(landscape,gamma,zMax)
-        stateMaps.append(getStates(landscape))
-        risk_maps.append(spatial_risk_mat(landscape))
+        for i in range(num_blocks):
+            update_p_fire(landscape,gamma,zMax)
+            stateMaps.append(getStates(landscape))
+            risk_maps.append(spatial_risk_mat(landscape))
 
         contained = check_contained(landscape,threshold)
     return(stateMaps,risk_maps)
@@ -651,6 +662,13 @@ def parser():
                         type=int,
                         default=5)
 
+    #number of blocks placed per timestep:
+    parser.add_argument('-b',
+                        '--blocks',
+                        help='number of blocks the agent is allowed to place',
+                        required=True,
+                        type=int)
+
     #where do you want to save output?
     parser.add_argument('-o',
                         '--outDir',
@@ -664,10 +682,24 @@ def parser():
                         required=True,
                         type=int)
 
+    parser.add_argument('-y',
+                        '--Yield',
+                        help='txt file to return yield',
+                        required=True,
+                        type=str)
+
+    parser.add_argument('-r',
+                        '--save',
+                        help='Indicates whether to save each statemap/riskmap from the simulation',
+                        nargs='?',
+                        const=0,
+                        type=int,
+                        default=0)
+
 
     return parser.parse_args()
 
-def make_sim(infile, outDir, simNumber, **kwargs):
+def make_sim(infile, outDir, simNumber, blocks, y_ield, **kwargs):
     """
         MAKE_SIM: Runs an agent based model, whereby agents are tasked at
                   containing the spread of a wildfire over a topographical
@@ -680,16 +712,23 @@ def make_sim(infile, outDir, simNumber, **kwargs):
 
                     outDir: a path to the desired output directory. Type: str
 
+                    simNumber: simulation currently in progress. Type: int
+
+                    blocks: number of blocks an agent is allowed to place
+
+                    y_ield: path to txt file where yield quantities are saved.
+                            Type: str
+
             RETURNS:
                     NONE, saves sitemaps and spatial risk maps at each timestep
     """
 
     #get commandline arguments:
-    gamma      = kwargs.get('gamma', 0.5)
+    gamma      = kwargs.get('gamma', 0.1)
     num_agents = kwargs.get('numAgents', 4)
     threshold  = kwargs.get('threshold', 4)
     init_time  = kwargs.get('initTime', 5)
-
+    save       = kwargs.get('save', False)
     #load in the height map:
     height_map = np.load(infile)
     z_max = np.max(height_map)
@@ -713,6 +752,9 @@ def make_sim(infile, outDir, simNumber, **kwargs):
         for j in list(range(len(landscape))):
             landscape[i][j].setDz(landscape)
 
+    # set dzMax
+    update_dz(landscape)
+
     #initialize fire cluster: landscape,gamma, zMax,maxN,contained,threshold,init_time
     stateMaps = fire_init(landscape,
                           gamma,
@@ -731,19 +773,31 @@ def make_sim(infile, outDir, simNumber, **kwargs):
                                      contained,
                                      threshold,
                                      num_agents,
-                                     stateMaps)
+                                     stateMaps,
+                                     blocks)
 
     file = infile.split('/')[-1]
-    #save the files: maps, f_name, outDir
-    for i, maps in enumerate(state_maps):
-        save_maps(maps,
-                  str(i)+'_'+file[:-4]+'_state_map',
-                  outDir+'/'+str(simNumber)+'_'+file[:-4])
 
-    for i, risks in enumerate(risk_mats):
-        save_maps(risks,
-                  str(i)+'_'+file[:-4]+'_risk_mat',
-                  outDir+'/'+str(simNumber)+'_'+file[:-4])
+    flatten_map = state_maps[-1].flatten()
+    map_quant = Counter(flatten_map)
+    y = map_quant[2] / len(flatten_map)
+
+    #save yield to yield txt file:
+    with open(file[:-4]+'_'+y_ield, 'a+') as f:
+        f.write(str(y)+'\n')
+
+    if save:
+
+        #save the files: maps, f_name, outDir
+        for i, maps in enumerate(state_maps):
+            save_maps(maps,
+                      str(i)+'_'+file[:-4]+'_state_map',
+                      outDir+'/'+str(simNumber)+'_'+file[:-4])
+
+        for i, risks in enumerate(risk_mats):
+            save_maps(risks,
+                      str(i)+'_'+file[:-4]+'_risk_mat',
+                      outDir+'/'+str(simNumber)+'_'+file[:-4])
 
 def main():
     """
@@ -768,7 +822,10 @@ def main():
              numAgents=args.numAgents,
              threshold=args.threshold,
              initTime=args.initTime,
-             simNumber=args.simNumber)
+             blocks=args.blocks,
+             simNumber=args.simNumber,
+             save=args.save,
+             y_ield=args.Yield)
 
 if __name__ == '__main__':
     main()
@@ -776,7 +833,7 @@ if __name__ == '__main__':
 # bowlSmall = np.load("150x150_bowl_z_10.npy")
 # # initialize contained
 # contained = False
-#
+
 # #zVals= np.random.randint(1,10,[N,N])
 # zVals = bowlSmall
 # N = len(zVals)
