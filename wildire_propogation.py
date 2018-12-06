@@ -783,7 +783,7 @@ def make_sim(infile, outDir, simNumber, blocks, y_ield, **kwargs):
     y = map_quant[2] / len(flatten_map)
 
     #save yield to yield txt file:
-    with open(file[:-4]+'_'+y_ield, 'a+') as f:
+    with open(file[:-4]+'_'+'gamma_'+str(gamma)+'_'+y_ield, 'a+') as f:
         f.write(str(y)+'\n')
 
     if save:
